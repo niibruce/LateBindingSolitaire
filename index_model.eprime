@@ -1,0 +1,142 @@
+language ESSENCE' 1.0
+
+$ 52 in any cell of the solution matrix indicates a blank cell
+$ cards_moved_idx:          This is the        
+$ cards_replaced_idx:       This is the
+$ solution:             This is the 
+
+
+$ Create the variables
+given n:              int(2..52)
+letting               moves=n-1
+
+given cards : matrix indexed by [ int(1..n) ] of int(0..51)
+where allDiff(cards)
+$letting card_idx: matrix indexed by [int(1..n)] of int(0..52) = [1,2,3,4]
+
+$ this stores the state of gameplay
+letting	  RANGE be domain int(1..n)
+
+letting hearts = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+letting diamonds = [13,14,15,16,17,18,19,20,21,22,23,24,25]
+letting clubs= [26,27,28,29,30,31,32,33,34,35,35,37,38]
+letting spades  = [39,40,41,42,43,44,45,46,47,48,49,50,51]
+
+$find
+find solution  : matrix indexed by [RANGE, RANGE] of int(0..n)
+find cards_moved_idx: matrix indexed by [int(1..moves)] of int(1..n)
+find cards_replaced_idx: matrix indexed by [int(1..moves)] of int(1..n)
+
+
+such that
+
+$initialisation
+$1 - Initial State - the first row of the solution matrix is the same as the set of cards given
+forAll i:int(1..n) . (
+    solution[1, i] = i
+  ),
+
+$ 2
+forAll move: int(1..moves) . (
+   ( cards_moved_idx[move] - cards_replaced_idx[move] = 3 \/ 
+    cards_moved_idx[move] - cards_replaced_idx[move] = 1 )
+    $/\ solution[move, cards_moved_idx[move]] > 1
+     $solution[move, cards_moved_idx[move]] <= n-move+1
+     $/\solution[move, cards_moved_idx[move]] > 1
+     $/\ solution[move, cards_replaced_idx[move]] != 0
+    /\ cards_moved_idx[move] <= (n - move + 1)
+    $/\ cards_moved_idx[move] != cards_replaced_idx[move] 
+), 
+
+
+$gameplay constraint: there exists a pair of cards that can be played
+$ 3
+forAll move: int(1..moves) . (
+        exists x, y: int(1..n-move+1) . (
+            
+            y >x  ->
+            
+            cards_replaced_idx[move] = x /\
+            cards_moved_idx[move] = y
+        )
+     $endForAll x
+),$endForAll y
+
+
+$ 4 - The cards selected ror movement and replacement must have the same rank or suit
+forAll move: int(1..moves) . (
+    forAll i: int(1..n).  (
+        
+        forAll j:int(1..n) . (
+            solution[move, i] = cards_moved_idx[move]  /\ solution[move, j] = cards_replaced_idx[move] -> 
+
+            (cards[i] <= 12 /\ cards[j] <= 12) \/ 
+            (cards[i] in toSet(clubs) /\ cards[j] in toSet(clubs)) \/ 
+            (cards[i]in toSet(diamonds) /\ cards[j] in toSet(diamonds)) \/ 
+            (cards[i] >= 39 /\ cards[j] >= 39) \/ 
+            (cards[i] % 13 = cards[j] % 13)
+        )
+    )
+),
+
+$ 5 - Update the cards_moved and cards_replaced matrix and some others
+forAll move: int(1..moves) . (
+    forAll i: int(1..n) . (
+
+        solution[move, i] =  cards_moved_idx[move] ->
+
+        solution[move+1, i] = cards_replaced_idx[move]
+)
+)
+,
+
+$ 6 - Update the cards_moved and cards_replaced matrix and some others
+forAll move: int(1..moves) . (
+    forAll i: int(1..n) . (
+        solution[move, i] =  cards_replaced_idx[move] -> 
+        solution[move + 1, i] =  0
+)
+)
+,
+
+$ 7: Every card *before* the card moved index is decremented by 1
+forAll move: int(1..moves) . (
+    forAll i: int(1..n) . (  
+
+        (solution[move,  i] < cards_replaced_idx[move] ) ->
+        solution[move+1,  i] = solution[move, i]
+
+    )
+),
+
+
+$ 8: Every card *after* the card moved index is decremented by 1
+forAll move: int(1..moves) . (
+    forAll i: int(1..n) . (  
+
+        (solution[move,  i] > cards_moved_idx[move] ) ->
+
+        solution[move+1,  i] = solution[move, i] - 1  
+
+    )
+),
+
+$ 9 - Update the cards_moved and cards_replaced matrix and some others
+forAll move: int(1..moves) . (
+   forAll i: int(1..n) . (  
+
+        (solution[move,  i] > cards_replaced_idx[move] )
+        
+        /\ (solution[move,  i] < cards_moved_idx[move] )
+         ->
+
+        solution[move+1,  i] = solution[move, i] 
+
+    )
+
+),
+
+
+
+
+true

@@ -1,0 +1,145 @@
+language ESSENCE' 1.0
+
+$ 53 in any cell of the solution matrix indicates a blank cell
+$ cards_moved_idx:          This is the matrix storing the indexes of all cards to be moved       
+$ cards_replaced_idx:       This is thematrix storing the indexes of all cards to be replaced.
+$ solution:             This is the matrix whose rows represent the order of the cards at every stage of play
+
+
+$ Create the variables
+given n:              int(2..52)
+letting               moves=n-1
+
+given cards : matrix indexed by [ int(1..n) ] of int(0..51)
+where allDiff(cards)
+$letting card_idx: matrix indexed by [int(1..n)] of int(0..52) = [1,2,3,4]
+
+$ this stores the state of gameplay
+letting	  RANGE be domain int(1..n)
+
+letting hearts = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+letting diamonds = [13,14,15,16,17,18,19,20,21,22,23,24,25]
+letting clubs= [26,27,28,29,30,31,32,33,34,35,35,37,38]
+letting spades  = [39,40,41,42,43,44,45,46,47,48,49,50,51]
+
+$find
+find solution  : matrix indexed by [RANGE, RANGE] of int(0..51, 53)
+find cards_moved_idx: matrix indexed by [int(1..moves)] of int(1..52)
+find cards_replaced_idx: matrix indexed by [int(1..moves)] of int(1..52)
+
+
+such that
+
+$initialisation
+$S1 - Initial State - the first row of the solution matrix is the same as the set of cards given
+forAll i:int(1..n) . (
+    solution[1, i] = cards[i]
+  ),
+
+$ Initial State 2: initialisation of 53s in specifc rows of solution
+  $ S2
+  forAll i:int(1..moves) . (
+      forAll j: int(n-i+1..n) . (
+          solution[i+1, j] = 53
+      )     
+),
+
+$S3 - 
+forAll i:int(1..moves) . (
+    alldifferent_except(solution[i, ..], 53)
+),
+
+
+$gameplay constraint: there exists a pair of cards that can be played
+$ C3
+$forAll move: int(1..moves) . (
+  $  exists x,y: int(1..n-move+1) . (
+         
+        $((y - x =3) \/ (y-x = 1))
+         $/\ 
+         $y != 1 /\ 
+    $     y > x ->
+         $/\ (y <= n-move+1)
+          $->
+            
+     $       cards_replaced_idx[move] = min(x, y) /\
+     $       cards_moved_idx[move] = max(x,y)
+
+     $   )
+$),$endForAll y
+
+
+
+$gameplay constraint: there exists a pair of cards that can be played
+$ G1
+forAll move: int(1..moves) . (
+    forAll x: int(1..n-move+1) . (
+        exists y: int(x-3, x-1, x+1, x+3) . (
+            
+            y >x  ->
+            
+            cards_replaced_idx[move] = min(x,y) /\
+            cards_moved_idx[move] = max(x, y)
+        )
+    ) $endForAll x
+),$endForAll y
+
+
+
+$G2 - The difference between the index of the card moved and the card replaced equals 3. 
+$ Since cards a moved right the right and replaced on the left, a card cannot be moved from index 1. 
+$ At each timestep, the maximum index of the card moved is equal of less than n - timeStep - 2. 
+forAll move: int(1..moves) . (
+    (cards_moved_idx[move] - cards_replaced_idx[move] = 3 \/ 
+    cards_moved_idx[move] - cards_replaced_idx[move] = 1 )
+    $/\ cards_moved_idx[move] > cards_replaced_idx[move]
+    /\ cards_moved_idx[move] != 1
+     /\ cards_moved_idx[move] <= (n-move + 1)
+    $/\ cards_moved_idx[move] != cards_replaced_idx[move] 
+), 
+
+
+$ G3 - The cards selected ror movement and replacement must have the same rank or suit
+forAll move: int(1..moves) . (
+    (solution[move, cards_moved_idx[move]] <= 12 /\ solution[move, cards_replaced_idx[move]] <= 12) \/ 
+    (solution[move, cards_moved_idx[move]] in toSet(clubs) /\ solution[move, cards_replaced_idx[move]] in toSet(clubs)) \/ 
+    (solution[move, cards_moved_idx[move]] in toSet(diamonds) /\ solution[move, cards_replaced_idx[move]] in toSet(diamonds)) \/ 
+    (solution[move, cards_moved_idx[move]] >= 39 /\ solution[move, cards_replaced_idx[move]] >= 39) \/ 
+    solution[move, cards_moved_idx[move]] % 13 = solution[move, cards_replaced_idx[move]] % 13
+),
+
+
+$ G4 - Update the cards_moved and cards_replaced matrix and some others
+forAll move: int(1..moves) . (
+    solution[move + 1, cards_replaced_idx[move]] = solution[move, cards_moved_idx[move]] 
+),
+
+$ G5 - Gameplay: every card *before* (to the left of) card replaced remains the same in the next step of solutions
+$ 
+forall move: int(1..moves) . (
+    forall i: int(1..n-move+1) . (
+       (i < cards_replaced_idx[move])  -> solution[move + 1, i ] = solution[move, i]
+    )
+),
+
+$ G6: If the diff btween card moved and card replaced is 3, update the middle 2 elements
+forAll move: int(1..moves) . (
+    cards_moved_idx[move] - cards_replaced_idx[move] = 3 -> 
+    solution[move+1, cards_replaced_idx[move] + 1] = solution[move, cards_replaced_idx[move] + 1] 
+        /\ solution[move+1, cards_replaced_idx[move] + 2] = solution[move, cards_replaced_idx[move] + 2] 
+),
+
+
+$ G7: Every card *after* the card that is moved is then moved one position to the *left* 
+$ in the *next* iteration of the solution
+forAll move: int(1..moves) . (
+    forAll i: int(1..n-move) . (  
+
+        (i >= cards_moved_idx[move] ) /\ (i <= n-move) ->
+
+        solution[move+1,  i] = solution[move, i + 1]  
+
+    )
+),
+
+true
